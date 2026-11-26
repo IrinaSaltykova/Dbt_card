@@ -1,0 +1,50 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Дневник АВС</title>
+<style>
+:root{--a:#4f7a6a;--bg:#f5f3ee;--c:#fff;--t:#24302c;--l:#d9ded9}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font:16px/1.45 system-ui,sans-serif}
+main{max-width:560px;margin:auto;padding:16px 16px 40px}h1{font-size:22px;margin:4px 0 12px}h2{font-size:17px;margin:0 0 10px}
+nav{position:sticky;top:0;background:var(--bg);display:flex;gap:6px;padding:8px 0}
+button{font:inherit;border:1px solid var(--l);background:var(--c);color:var(--t);border-radius:12px;padding:9px 12px;cursor:pointer}
+nav button{flex:1;padding:9px 2px;font-size:14px}button.on{background:var(--a);border-color:var(--a);color:#fff}
+section{background:var(--c);border-radius:16px;padding:14px;margin:12px 0}
+.q{margin:12px 0}.row{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.num button{flex:1;min-width:34px;padding:8px 0}
+input,textarea,select{font:inherit;width:100%;padding:9px;border:1px solid var(--l);border-radius:10px;background:#fff;color:var(--t);margin-top:6px}
+.warn{background:#fdeee6;border-radius:12px;padding:12px;font-size:14px}small{color:#66736e}pre{white-space:pre-wrap;font:14px/1.5 system-ui,sans-serif}
+table{width:100%;border-collapse:collapse;table-layout:fixed;margin:8px 0}th,td{border:1px solid var(--l);padding:6px;vertical-align:top;text-align:left;font-size:14px}td button{font-size:13px;padding:6px 8px;margin-top:4px}td input[type=range]{padding:0}</style></head><body><main>
+<h1>Дневник АВС</h1>
+<div class="warn">Записи никто не видит, пока вы не отправите отчёт. Если вам небезопасно, не ждите сессии: свяжитесь с терапевтом, а при опасности для жизни звоните 112.</div>
+<label class="q">Псевдоним<input id="name"></label>
+<nav><button id="n0">Записи</button><button id="n1">Отчёт</button></nav><div id="view"></div>
+</main><script>
+const KEY="abcDiary";let db={name:"",list:[]},tab=0;
+try{db=JSON.parse(localStorage.getItem(KEY))||db}catch(e){}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){alert("Браузер не сохраняет записи. Откройте ссылку в обычном браузере.")}}
+const $=s=>document.querySelector(s),el=(t,p,x)=>{const e=document.createElement(t);if(x!==undefined)e.textContent=x;p.append(e);return e};
+const iso=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+const ru=d=>d.split("-").reverse().join(".");
+function input(p,label,obj,key,type){const l=el("label",p,label);l.className="q";l.style.display="block";const i=el(type||"textarea",l);if(type)i.type="date";else i.rows=2;i.value=obj[key];i.oninput=()=>{obj[key]=i.value;save()};return i}
+function slider(p,label,obj,key){const t=el("small",p,label+": "+obj[key]+"%"),i=el("input",p);i.type="range";i.min=0;i.max=100;i.step=5;i.value=obj[key];i.style.accentColor="var(--a)";i.oninput=()=>{obj[key]=+i.value;t.textContent=label+": "+i.value+"%";save()}}
+// старые записи (одна эмоция и одно поле мыслей) переносятся в таблицу
+function upgrade(x){if(!x.pairs)x.pairs=[{em:x.em||"",power:x.power??50,th:[{t:x.b||"",belief:50}]}];return x}
+function cell(p,hint,obj,key){const i=el("textarea",p);i.rows=2;i.placeholder=hint;i.value=obj[key];i.oninput=()=>{obj[key]=i.value;save()}}
+function table(s,x){const t=el("table",s),h=el("tr",t);el("th",h,"С. Эмоция и сила");el("th",h,"В. Мысли к ней и вера");
+ upgrade(x).pairs.forEach((pair,n)=>{const r=el("tr",t),a=el("td",r),b=el("td",r);cell(a,"Эмоция",pair,"em");slider(a,"Сила",pair,"power");
+  pair.th.forEach((th,k)=>{cell(b,"Мысль",th,"t");slider(b,"Верю",th,"belief");if(pair.th.length>1)el("button",b,"Убрать мысль").onclick=()=>{pair.th.splice(k,1);save();draw()}});
+  el("button",b,"+ Мысль").onclick=()=>{pair.th.push({t:"",belief:50});save();draw()};
+  if(x.pairs.length>1)el("button",a,"Убрать эмоцию").onclick=()=>{if(confirm("Убрать эмоцию вместе с мыслями?")){x.pairs.splice(n,1);save();draw()}}});
+ el("button",s,"+ Эмоция").onclick=()=>{x.pairs.push({em:"",power:50,th:[{t:"",belief:50}]});save();draw()}}
+function report(){const from=new Date();from.setDate(from.getDate()-6);const rows=db.list.filter(x=>x.date>=iso(from)).sort((a,b)=>a.date.localeCompare(b.date));
+ const out=["Дневник АВС","Клиент: "+(db.name||"—")];if(!rows.length)out.push("","За 7 дней записей нет");
+ rows.forEach(x=>{out.push("",ru(x.date),"А. Ситуация: "+(x.a||"—"),...upgrade(x).pairs.flatMap(p=>["С. Эмоция: "+(p.em||"—")+", "+p.power+"%",...p.th.filter(h=>h.t).map(h=>"   В. Мысль: "+h.t+" (верю на "+h.belief+"%)")]),"Внутренняя реакция: "+(x.inner||"—"),"Внешняя реакция: "+(x.outer||"—"));
+  if(x.hot)out.push("★ Самая сильная мысль: "+x.hot+" (верю на "+x.belief+"%)")});return out.join("\n")}
+function draw(){const v=$("#view"),y=scrollY;v.textContent="";$("#n0").className=tab?"":"on";$("#n1").className=tab?"on":"";
+ if(!tab){const add=el("button",el("section",v),"+ Новая ситуация");add.className="on";add.onclick=()=>{db.list.unshift({date:iso(new Date()),a:"",pairs:[{em:"",power:50,th:[{t:"",belief:50}]}],inner:"",outer:"",hot:"",belief:50});save();draw()};
+  db.list.forEach((x,n)=>{const s=el("section",v);input(s,"Дата",x,"date","input");input(s,"А. Ситуация: что произошло?",x,"a");table(s,x);
+   input(s,"Внутренняя реакция: ощущения в теле, побуждения",x,"inner");input(s,"Внешняя реакция: что сделали?",x,"outer");
+   const d=el("details",s);d.open=!!x.hot;el("summary",d,"Самая сильная мысль (по желанию)");input(d,"Какая мысль влияет сильнее всего?",x,"hot");slider(d,"Насколько в неё верю",x,"belief");
+   el("button",s,"Удалить запись").onclick=()=>{if(confirm("Удалить эту запись?")){db.list.splice(n,1);save();draw()}}})}
+ else{const s=el("section",v);el("h2",s,"Последние 7 дней");const text=report(),c=el("button",s,"Скопировать отчёт");c.className="on";c.onclick=()=>navigator.clipboard.writeText(text).then(()=>c.textContent="Скопировано ✓",()=>alert("Выделите текст и скопируйте вручную"));el("pre",s,text)}
+ scrollTo(0,y)}
+$("#name").value=db.name;$("#name").oninput=e=>{db.name=e.target.value;save()};
+$("#n0").onclick=()=>{tab=0;draw()};$("#n1").onclick=()=>{tab=1;draw()};draw();
+</script></body></html>
